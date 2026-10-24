@@ -1,5 +1,6 @@
 Test_PostgreSQL_file.sql
-
+.env
+.vscode/
 py_crud/
 
 # This will match any __pycache__ folder anywhere in the project

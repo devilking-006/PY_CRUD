@@ -1,17 +1,18 @@
 from datetime import datetime, timedelta, UTC
-import jwt  # Changed from 'from jose import jwt'
+import jwt
 from fastapi import Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from . import schemas, database, models
+from .config import settings
 
 # Use the command 'openssl rand -hex 32' in terminal to generate the random long secret key.
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
-SECRET_KEY = "3d7893838aae9b256219a18580f37af01056b09afef1dd479412deadf8c99056"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 def create_access_tokens(data: dict):
     to_encode = data.copy()
@@ -36,7 +37,7 @@ def verify_access_token(token: str, credentials_exception):
             raise credentials_exception
         token_data = schemas.TokenData(id=id)
         
-    except jwt.PyJWTError:  # Changed from JWTError
+    except jwt.PyJWTError:
         raise credentials_exception
 
     return token_data
