@@ -16,6 +16,14 @@ class UserRes(BaseModel): # User response model for viewing the required details
     class Config: # SQL Alchemy model to Pydantic model conversion.
         from_attributes = True # Earlier 'orm_mode = True'
 
+class UserRes2(BaseModel): # User response for viewing with the posts when queried for one or all posts.
+    username: str
+    email: EmailStr
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class UserLogin(BaseModel): # User Login model to check for authentic user before sharing the required data.
     email: EmailStr
     password: str
@@ -38,9 +46,16 @@ class Post(BaseModel): # Post Model, for creation of new post and also updation 
 class PostRes(Post): # Response Model, contains the fields to be shown to the user, on requirement.
     created_at: datetime
     owner_id: int
-    owner: UserRes
+    owner: UserRes2
 
     class Config: # SQL Alchemy model to Pydantic model conversion.
+        from_attributes = True
+
+class PostVoteRes(BaseModel):
+    Post: PostRes
+    votes: int
+
+    class Config:
         from_attributes = True
 
 class Token(BaseModel):
@@ -49,3 +64,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[int] = None
+
+class Vote(BaseModel):
+    post_id: int
+    dir: Annotated[int, Field(ge=0, le=1)]

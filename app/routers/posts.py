@@ -1,5 +1,6 @@
 from fastapi import Response, status, HTTPException, Depends, APIRouter
 from .. import models, schemas, oauth2
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database import get_db
 from typing import List, Optional
@@ -9,11 +10,28 @@ router = APIRouter(
     tags=['Posts']
 )
 
-@router.get("/", response_model=List[schemas.PostRes])
+# @router.get("/", response_model=List[schemas.PostRes])
+@router.get("/", response_model=List[schemas.PostVoteRes])
 def get_posts(db: Session = Depends(get_db), current_user: models.User = Depends(oauth2.get_current_user), limit: Optional[int] = None, offset: Optional[int] = None, search: Optional[str] = ""): # Added for using SQLAlchemy, OAuth2, along with the query parameters.
 
-    posts = db.query(models.Post_table).filter(models.Post_table.title.contains(search)).limit(limit).offset(offset).all()
-    return posts
+    query = (
+        db.query(
+            models.Post_table,
+            func.count(models.Votes.post_id).label("votes")
+        )
+        .outerjoin(models.Votes, models.Post_table.id == models.Votes.post_id)
+        .group_by(models.Post_table.id)
+    )
+
+    if search:
+        query = query.filter(models.Post_table.title.contains(search))
+    if offset is not None:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+
+    results = query.all()
+    return [{"Post": post, "votes": votes} for post, votes in results]
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.PostRes)
 def create_posts(post: schemas.Post, db: Session = Depends(get_db), current_user: models.User = Depends(oauth2.get_current_user)):
@@ -24,14 +42,26 @@ def create_posts(post: schemas.Post, db: Session = Depends(get_db), current_user
     db.refresh(new_post)
     return new_post
 
-@router.get("/{id}", response_model=schemas.PostRes)
+@router.get("/{id}", response_model=schemas.PostVoteRes)
 def get_post(id: int, db: Session = Depends(get_db)):
 
-    post = db.query(models.Post_table).filter(models.Post_table.id == id).first() # Returns the first instance of instance match.
-    if not post:
+    query = (
+        db.query(
+            models.Post_table,
+            func.count(models.Votes.post_id).label("votes")
+        )
+        .outerjoin(models.Votes, models.Post_table.id == models.Votes.post_id)
+        .group_by(models.Post_table.id)
+    )
+
+    result = query.filter(models.Post_table.id == id).first() # Returns the first instance of instance match.
+
+    if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail = f"post with id: {id} was not found")
-    return post
+
+    post, votes = result
+    return {"Post": post, "votes": votes}
 
 @router.delete("/{id}")
 def delete_post(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(oauth2.get_current_user)):
